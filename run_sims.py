@@ -19,6 +19,17 @@ import finite_sim as sim
 import finite_sim_wrapper as sim_wrapper
 
 """ Runs simulations for herding and competition bias investigations using the same parameter values. """
+import argparse
+
+argParser = argparse.ArgumentParser()
+argParser.add_argument("-r", "--n_runs", help="number of simulations to run")
+argParser.add_argument("-l", "--n_listings", help="number of listings")
+argParser.add_argument("--herding", action='store_true',  help="whether to run hearding simulations")
+argParser.add_argument("--herding_no_recency", action='store_true', help="number of listings")
+argParser.add_argument("--crowding", action='store_true', help="number of listings")
+
+args = argParser.parse_args()
+
 print("BEGIN")
 
 # Parameters
@@ -72,8 +83,10 @@ T_end = {lam: T_1/min(lam,tau) for lam in lams}
 
 varying_time_horizons = True
 
-n_runs = 100
-n_listings = 1000
+n_runs = int(args.n_runs)
+n_listings = int(args.n_listings)
+print('Number of runs:',n_runs)
+print('Number of listings:',n_listings)
 
 choice_set_type = 'alpha' #customers sample items into consideration set with prob alpha
 k = None
@@ -84,33 +97,49 @@ params = sim_wrapper.calc_all_params(listing_types, rhos_pre_treat,
                                     tsr_ac_al_values, cr_a_C, lr_a_L)
 
 # Herding
-print("HERDING")
-events_herding = sim_wrapper.run_all_sims(n_runs, n_listings, T_start, T_end, 
-                                  choice_set_type, k,
-                                 alpha, epsilon, tau, lams,
-                                 **params, herding=True)
-est_stats_herding = sim_wrapper.calc_all_ests_stats("sample_", T_start, T_end, 
-                                            n_listings, tau=tau, 
-                                            tsr_est_types=tsr_est_types,
-                                            events=events_herding, 
-                                            varying_time_horizons=varying_time_horizons,
-                                            **params,
-                                            fname_suffix="_herding.csv"
-                                           )
+if args.herding:
+    print("HERDING")
+    events_herding = sim_wrapper.run_all_sims(n_runs, n_listings, T_start, T_end, 
+                                    choice_set_type, k,
+                                    alpha, epsilon, tau, lams,
+                                    **params, herding=True)
+    est_stats_herding = sim_wrapper.calc_all_ests_stats("sample_", T_start, T_end, 
+                                                n_listings, tau=tau, 
+                                                tsr_est_types=tsr_est_types,
+                                                events=events_herding, 
+                                                varying_time_horizons=varying_time_horizons,
+                                                **params,
+                                                fname_suffix="_herding.csv"
+                                            )
+if args.herding_no_recency:
+    print("HERDING NO RECENCY")
+    events_herding_no_recency = sim_wrapper.run_all_sims(n_runs, n_listings, T_start, T_end, 
+                                    choice_set_type, k,
+                                    alpha, epsilon, tau, lams,
+                                    **params, herding=True, recency=False)
+    est_stats_herding_no_recency = sim_wrapper.calc_all_ests_stats("sample_", T_start, T_end, 
+                                                n_listings, tau=tau, 
+                                                tsr_est_types=tsr_est_types,
+                                                events=events_herding_no_recency, 
+                                                varying_time_horizons=varying_time_horizons,
+                                                **params,
+                                                fname_suffix="_herding_no_recency.csv"
+                                            )
 
-# Crowding
-print("CROWDING")
-events_competition = sim_wrapper.run_all_sims(n_runs, n_listings, T_start, T_end, 
-                                  choice_set_type, k,
-                                 alpha, epsilon, tau, lams,
-                                 **params)
-est_stats_competition = sim_wrapper.calc_all_ests_stats("sample_", T_start, T_end, 
-                                            n_listings, tau=tau, 
-                                            tsr_est_types=tsr_est_types,
-                                            events=events_competition, 
-                                            varying_time_horizons=varying_time_horizons,
-                                            **params,
-                                            fname_suffix="_competition.csv"
-                                           )
+if args.crowding:
+    # Crowding
+    print("CROWDING")
+    events_competition = sim_wrapper.run_all_sims(n_runs, n_listings, T_start, T_end, 
+                                    choice_set_type, k,
+                                    alpha, epsilon, tau, lams,
+                                    **params)
+    est_stats_competition = sim_wrapper.calc_all_ests_stats("sample_", T_start, T_end, 
+                                                n_listings, tau=tau, 
+                                                tsr_est_types=tsr_est_types,
+                                                events=events_competition, 
+                                                varying_time_horizons=varying_time_horizons,
+                                                **params,
+                                                fname_suffix="_competition.csv"
+                                            )
 
 print("END")

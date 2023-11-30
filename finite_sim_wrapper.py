@@ -34,7 +34,7 @@ Listing_dfs - df indexed by listing ID, gives number of bookings available at en
 def mult_runs_events(choice_type, k, exp_type, exp_param, tau, alpha, epsilon,
                         n_runs, n_listings, T_start, T_end, 
                         a_C=None, a_L=None,
-                        tsr_est_types=None, cr_weight=None, num_threads=45, herding=False):
+                        tsr_est_types=None, cr_weight=None, num_threads=45, herding=False, recency=True):
     s_full = {l: int(n_listings * exp_param['rhos_exp'][l]) for l in exp_param['thetas_exp']}
 
     events = {} #
@@ -66,7 +66,7 @@ def mult_runs_events(choice_type, k, exp_type, exp_param, tau, alpha, epsilon,
                     copy.copy(s_full), 
                     T_end, exp_param['thetas_exp'], 
                     exp_param['gammas_exp'], exp_param['v_gammas_exp'], 
-                    tau, exp_param['lam_gammas_exp'], alpha, epsilon, herding=herding), range(n_runs)):
+                    tau, exp_param['lam_gammas_exp'], alpha, epsilon, herding=herding, recency=recency), range(n_runs)):
         if exp_type=="cr":
             events['cr'].append([events_one_run['events']])
             event_times['cr'].append([events_one_run['listing_times']])
@@ -111,7 +111,7 @@ def mult_runs_global_conditions(choice_type, k, global_cond, params, tau, alpha,
                                             copy.copy(s_full), copy.copy(s_full), 
                                     T_end, params['thetas_t'], 
                                     params['gammas_t'], params['v_gammas_t'], 
-                                    tau, params['lam_gammas_t'], alpha, epsilon, herding=herding), range(n_runs)):
+                                    tau, params['lam_gammas_t'], alpha, epsilon, herding=herding, recency=recency), range(n_runs)):
             events.append([events_one_run])
     
     elif global_cond == 'global_control':
@@ -120,7 +120,7 @@ def mult_runs_global_conditions(choice_type, k, global_cond, params, tau, alpha,
                             copy.copy(s_full), 
                             T_end, params['thetas_c'], 
                             params['gammas_c'], params['v_gammas_c'], 
-                            tau, params['lam_gammas_c'], alpha, epsilon, herding=herding), range(n_runs)):
+                            tau, params['lam_gammas_c'], alpha, epsilon, herding=herding, recency=recency), range(n_runs)):
             events.append([events_one_run])
     pool.close()
     pool.join()
@@ -324,8 +324,8 @@ def calc_estimator_stats(estimator_type, estimates_df, gtes, tau, normalized=Fal
     stats['abs_bias_over_GTE'] = np.abs(stats['bias']) / stats['gte']
     stats['std'] = estimates_df.std()
     stats['std_over_GTE'] = stats['std'] / stats['gte']
-    stats['rmse'] = np.sqrt(np.mean((estimates_df - gtes)**2))
-    stats['rmse_over_GTE'] = np.sqrt(np.mean((estimates_df - gtes)**2)) / stats['gte']
+    stats['rmse'] = np.sqrt(((estimates_df - gtes)**2).mean())
+    stats['rmse_over_GTE'] = np.sqrt(((estimates_df - gtes)**2).mean()) / stats['gte']
     
     stats = pd.concat([stats], keys=[estimator_type], names=['estimator_type', 'lambda'])
     
@@ -384,7 +384,7 @@ def calc_all_params(listing_types, rhos_pre_treat, customer_types, customer_prop
 def run_all_sims(n_runs, n_listings, T_start, T_end, choice_set_type, k, 
                  alpha, epsilon, tau, lams,
                  a_Cs, a_Ls, cr_weights, cr_params, lr_params, tsr_fixed_params, tsr_opt_params,
-                 cr_a_C, lr_a_L, tsr_ac_al_values, herding=False):
+                 cr_a_C, lr_a_L, tsr_ac_al_values, herding=False, recency=True):
     """
     Runs multiple simulations for all experiment types.
     """
@@ -406,13 +406,13 @@ def run_all_sims(n_runs, n_listings, T_start, T_end, choice_set_type, k,
         cr_events[lam] = mult_runs_events(choice_set_type, k, 'cr', cr_params[lam], 
                                                     tau, alpha, epsilon,
                                                 n_runs, n_listings, T_start[lam], T_end[lam], 
-                                                a_C=cr_a_C, herding=herding)
+                                                a_C=cr_a_C, herding=herding, recency=recency)
 
         # LR experiment
         lr_events[lam] = mult_runs_events(choice_set_type, k, 'lr', lr_params[lam], 
                                                     tau, alpha, epsilon,
                                     n_runs, n_listings, T_start[lam], T_end[lam], 
-                                    a_L=lr_a_L, herding=herding)
+                                    a_L=lr_a_L, herding=herding, recency=recency)
 
         # TSR experiment
         # a_C, a_L varying based on lambda/tau
@@ -421,7 +421,7 @@ def run_all_sims(n_runs, n_listings, T_start, T_end, choice_set_type, k,
                                                     n_runs, n_listings, T_start[lam], T_end[lam], 
                                                     a_C=a_Cs[lam], a_L=a_Ls[lam], 
                                                     tsr_est_types=tsr_est_types,
-                                                cr_weight=cr_weights[lam], herding=herding)
+                                                cr_weight=cr_weights[lam], herding=herding, recency=recency)
 
             
         global_solution = exp_wrapper.calc_gte_from_exp_type("customer", tau, epsilon, **cr_params[lam])

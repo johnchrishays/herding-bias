@@ -13,5 +13,5 @@
 
 module load /home/software/modulefiles/python/3.9.4
 python3.9 -m pip install -r requirements.txt --user
-python3.9 run_sims.py 
+python3.9 run_sims.py --n_runs=100 --n_listings=100 --herding_no_recency --herding --crowding
 

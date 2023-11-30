@@ -143,7 +143,7 @@ def customer_choice(choice_set_type, n, k, s_t, thetas, gamma, vs_gamma, alpha, 
 
 
 def run_mc_listing_ids(choice_set_type, n, k, s_0, s_full, T, thetas, gammas, vs, 
-                        tau, lam_gammas, alpha, epsilon, run_number, herding=False):
+                        tau, lam_gammas, alpha, epsilon, run_number, herding=False, recency=True):
     """
     Runs the continuous time Markov Chain. 
     State refers to the state of the market just before customer arrives or listing replenishes.
@@ -225,15 +225,20 @@ def run_mc_listing_ids(choice_set_type, n, k, s_0, s_full, T, thetas, gammas, vs
             # Update listings_df. Randomly select an unavailable listing 
             # of the appropriate type to be replenished
             if herding:
-                unavailable_set = listings_df[(listings_df['type']==l)
-                                            & (listings_df['available']>=2)]
+                if recency:
+                    unavailable_set = listings_df[(listings_df['type']==l)
+                                                & (listings_df['available']>=2)]
             else:
                 unavailable_set = listings_df[(listings_df['type']==l)
                                             & (listings_df['available']==0)]
 
-            the_chosen_one = unavailable_set.sample(n=1).index[0]
+
+            if recency:
+                the_chosen_one = unavailable_set.sample(n=1).index[0]
+
             if herding:
-                listings_df.loc[the_chosen_one, 'available'] -= 1
+                if recency:
+                    listings_df.loc[the_chosen_one, 'available'] -= 1
             else:
                 listings_df.loc[the_chosen_one, 'available'] = 1
             listing_times[the_chosen_one].append(t)
