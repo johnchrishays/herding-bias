@@ -143,7 +143,7 @@ def customer_choice(choice_set_type, n, k, s_t, thetas, gamma, vs_gamma, alpha, 
 
 
 def run_mc_listing_ids(choice_set_type, n, k, s_0, s_full, T, thetas, gammas, vs, 
-                        tau, lam_gammas, alpha, epsilon, run_number):
+                        tau, lam_gammas, alpha, epsilon, run_number, herding=False):
     """
     Runs the continuous time Markov Chain. 
     State refers to the state of the market just before customer arrives or listing replenishes.
@@ -200,10 +200,16 @@ def run_mc_listing_ids(choice_set_type, n, k, s_0, s_full, T, thetas, gammas, vs
                     # randomly select an available listing of the 
                     # appropriate type to be chosen. Update listings_df 
                     # and listing_times
-                    available_set = listings_df[(listings_df['type']==choice)
-                                                & (listings_df['available']==1)]
+                    if herding:
+                        available_set = listings_df[(listings_df['type']==choice)]
+                    else:
+                        available_set = listings_df[(listings_df['type']==choice)
+                                                    & (listings_df['available']==1)]
                     the_chosen_one = available_set.sample(n=1).index[0]
-                    listings_df.loc[the_chosen_one, 'available'] = 0
+                    if herding:
+                        listings_df.loc[the_chosen_one, 'available'] += 1
+                    else:
+                        listings_df.loc[the_chosen_one, 'available'] = 0
                     listing_times[the_chosen_one].append(t)
             
             # updates total list of events
@@ -218,10 +224,18 @@ def run_mc_listing_ids(choice_set_type, n, k, s_0, s_full, T, thetas, gammas, vs
             
             # Update listings_df. Randomly select an unavailable listing 
             # of the appropriate type to be replenished
-            unavailable_set = listings_df[(listings_df['type']==l)
+            if herding:
+                unavailable_set = listings_df[(listings_df['type']==l)
+                                            & (listings_df['available']>=2)]
+            else:
+                unavailable_set = listings_df[(listings_df['type']==l)
                                             & (listings_df['available']==0)]
+
             the_chosen_one = unavailable_set.sample(n=1).index[0]
-            listings_df.loc[the_chosen_one, 'available'] = 1
+            if herding:
+                listings_df.loc[the_chosen_one, 'available'] -= 1
+            else:
+                listings_df.loc[the_chosen_one, 'available'] = 1
             listing_times[the_chosen_one].append(t)
             
             is_replenished.append(1)
