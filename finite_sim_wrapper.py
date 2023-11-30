@@ -151,7 +151,7 @@ def calc_estimates_from_events(events, exp_type, exp_params,
                                 cr_weights=None,
                                 fixed_ac_al=False,
                                 varying_time_horizons=False,
-                                save=False, file_path=None):
+                                save=False, file_path=None, fname_suffix=".csv"):
     start_times = T_start
     end_times = T_end
     
@@ -207,13 +207,13 @@ def calc_estimates_from_events(events, exp_type, exp_params,
         estimates_df = {lam:estimates[lam]['cr'] for lam in estimates.keys()}
         estimates_df = pd.DataFrame(estimates_df)
         if save:
-            estimates_df.to_csv(file_path+"cr_estimates.csv")
+            estimates_df.to_csv(file_path+"cr_estimates" + fname_suffix)
 
     elif exp_type == 'lr':
         estimates_df = {lam:estimates[lam]['lr'] for lam in estimates.keys()}
         estimates_df = pd.DataFrame(estimates_df)
         if save:
-            estimates_df.to_csv(file_path+"lr_estimates.csv")
+            estimates_df.to_csv(file_path+"lr_estimates" + fname_suffix)
             
     elif exp_type == 'tsr':
         estimates_df = {}
@@ -223,13 +223,13 @@ def calc_estimates_from_events(events, exp_type, exp_params,
                                         for lam in estimates.keys()}
             estimates_df[tsr_est] = pd.DataFrame(estimates_df[tsr_est])
             if save:
-                estimates_df[tsr_est].to_csv(file_path+str(tsr_est)+rand_type+"_estimates.csv")
+                estimates_df[tsr_est].to_csv(file_path+str(tsr_est)+rand_type+"_estimates" + fname_suffix)
 
     elif exp_type == 'gc':
         estimates_df = {lam:estimates[lam]['gc'] for lam in estimates.keys()}
         estimates_df = pd.DataFrame(estimates_df)
         if save:
-            estimates_df.to_csv(file_path+"gc_estimates.csv")
+            estimates_df.to_csv(file_path+"gc_estimates" + fname_suffix)
 
     return estimates_df
     
@@ -240,7 +240,7 @@ def calc_n_bookings_from_events(events, exp_type, exp_params,
                                 a_C=None, a_L=None,
                                 tsr_est_types=None, cr_weights=None,
                                 fixed_ac_al=False,
-                                save=False, file_path=None):
+                                save=False, file_path=None, fname_suffix=".csv"):
     """
     Calculates number of bookings made.
     """
@@ -263,7 +263,7 @@ def calc_n_bookings_from_events(events, exp_type, exp_params,
                 bookings_per_cell[lam]['cr'].append(bookings)
             bookings_dfs[lam] = pd.DataFrame(bookings_per_cell[lam]['cr'])
             if save:
-                bookings_dfs[lam].to_csv(file_path+"cr_n_bookings"+str(lam).replace(".","")+".csv")
+                bookings_dfs[lam].to_csv(file_path+"cr_n_bookings"+str(lam).replace(".","")+fname_suffix)
             
         elif exp_type == 'lr':
             bookings_per_cell[lam]['lr'] = []
@@ -277,7 +277,7 @@ def calc_n_bookings_from_events(events, exp_type, exp_params,
                 bookings_per_cell[lam]['lr'].append(bookings)
             bookings_dfs[lam] = pd.DataFrame(bookings_per_cell[lam]['lr'])
             if save:
-                bookings_dfs[lam].to_csv(file_path+"lr_n_bookings"+str(lam).replace(".","")+".csv")
+                bookings_dfs[lam].to_csv(file_path+"lr_n_bookings"+str(lam).replace(".","") + fname_suffix)
         elif exp_type == 'tsr':
             for est in tsr_est_types:
                 bookings_per_cell[lam][est] = []
@@ -294,7 +294,7 @@ def calc_n_bookings_from_events(events, exp_type, exp_params,
             for tsr_est in tsr_est_types:
                 bookings_dfs[lam][tsr_est] = pd.DataFrame(bookings_per_cell[lam][tsr_est])
                 if save:
-                    bookings_dfs[lam][tsr_est].to_csv(file_path+tsr_est+"_n_bookings"+str(lam).replace(".","")+".csv")
+                    bookings_dfs[lam][tsr_est].to_csv(file_path+tsr_est+"_n_bookings"+str(lam).replace(".","")+fname_suffix)
     return bookings_dfs
 
 
@@ -442,7 +442,7 @@ def calc_all_ests_stats(file_path, T_start, T_end, n_listings,
                     events, 
                     tau, tsr_est_types, 
                     gtes=None, normalized_by_lam=True,
-                    varying_time_horizons=False):
+                    varying_time_horizons=False, fname_suffix=".csv"):
     """
     For experiments (CR, LR, TSR), calculates the bias,
     standard error, and root mean squared error (RMSE) of the estimators.
@@ -458,18 +458,18 @@ def calc_all_ests_stats(file_path, T_start, T_end, n_listings,
     cr_estimates = calc_estimates_from_events(cr_events, 'cr', cr_params, 
                                                 T_start, T_end, n_listings, a_C=cr_a_C,
                                                 varying_time_horizons=varying_time_horizons, 
-                                                save=True, file_path=file_path)
+                                                save=True, file_path=file_path, fname_suffix=fname_suffix)
     lr_estimates = calc_estimates_from_events(lr_events, 'lr', lr_params, 
                                                 T_start, T_end, n_listings, a_L=lr_a_L,
                                                 varying_time_horizons=varying_time_horizons, 
-                                                save=True, file_path=file_path)
+                                                save=True, file_path=file_path, fname_suffix=fname_suffix)
     tsr_opt_estimates = calc_estimates_from_events(tsr_opt_events, 'tsr', tsr_opt_params, 
                                                     T_start, T_end, n_listings, 
                                                     a_C=a_Cs, a_L=a_Ls,  
                                                     tsr_est_types=tsr_est_types,
                                                     cr_weights=cr_weights, fixed_ac_al=False,
                                                     varying_time_horizons=varying_time_horizons, 
-                                                    save=True, file_path=file_path)
+                                                    save=True, file_path=file_path, fname_suffix=fname_suffix)
 
     cr_stats = calc_estimator_stats('cr', cr_estimates, gtes, tau, 
                                      normalized=normalized_by_lam)
@@ -482,7 +482,7 @@ def calc_all_ests_stats(file_path, T_start, T_end, n_listings,
         
     total_stats_df = pd.concat([cr_stats, lr_stats]
                                 +[tsr_opt_stats[tsr_est] for tsr_est in tsr_est_types])
-    total_stats_df.to_csv(file_path+"total_stats.csv")
+    total_stats_df.to_csv(file_path+"total_stats"+fname_suffix)
     return total_stats_df
 
 def plot_and_save(file_path, total_stats_df):
