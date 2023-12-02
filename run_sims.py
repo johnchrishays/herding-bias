@@ -103,36 +103,48 @@ if args.herding:
                                     choice_set_type, k,
                                     alpha, epsilon, tau, lams,
                                     **params, herding=True)
-    est_stats_herding = sim_wrapper.calc_all_ests_stats("sample_", T_start, T_end, 
-                                                n_listings, tau=tau, 
-                                                tsr_est_types=tsr_est_types,
-                                                events=events_herding, 
-                                                varying_time_horizons=varying_time_horizons,
-                                                **params,
-                                                fname_suffix="_herding.csv"
-                                            )
+    est_stats_herding = sim_wrapper.calc_all_ests_stats("sample_", 
+                                                        T_start, 
+                                                        T_end, 
+                                                        n_listings, 
+                                                        tau=tau, 
+                                                        tsr_est_types=tsr_est_types, 
+                                                        events=events_herding, 
+                                                        varying_time_horizons=varying_time_horizons, 
+                                                        **params, 
+                                                        fname_suffix="_herding.csv")
 if args.herding_no_recency:
     print("HERDING NO RECENCY")
     events_herding_no_recency = sim_wrapper.run_all_sims(n_runs, n_listings, T_start, T_end, 
                                     choice_set_type, k,
                                     alpha, epsilon, tau, lams,
                                     **params, herding=True, recency=False)
-    est_stats_herding_no_recency = sim_wrapper.calc_all_ests_stats("sample_", T_start, T_end, 
-                                                n_listings, tau=tau, 
-                                                tsr_est_types=tsr_est_types,
-                                                events=events_herding_no_recency, 
-                                                varying_time_horizons=varying_time_horizons,
-                                                **params,
-                                                fname_suffix="_herding_no_recency.csv"
-                                            )
+    est_stats_herding_no_recency = sim_wrapper.calc_all_ests_stats("sample_", 
+                                                                   T_start, 
+                                                                   T_end, 
+                                                                   n_listings, 
+                                                                   tau=tau, 
+                                                                   tsr_est_types=tsr_est_types, 
+                                                                   events=events_herding_no_recency, 
+                                                                   varying_time_horizons=varying_time_horizons, 
+                                                                   **params, 
+                                                                   fname_suffix="_herding_no_recency.csv")
 
 if args.crowding:
     # Crowding
     print("CROWDING")
-    events_competition = sim_wrapper.run_all_sims(n_runs, n_listings, T_start, T_end, 
-                                    choice_set_type, k,
-                                    alpha, epsilon, tau, lams,
-                                    **params)
+    events_competition = sim_wrapper.run_all_sims(n_runs, 
+                                                  n_listings, 
+                                                  T_start, 
+                                                  T_end, 
+                                                  choice_set_type, 
+                                                  k, 
+                                                  alpha, 
+                                                  epsilon, 
+                                                  tau, 
+                                                  lams, 
+                                                  **params, 
+                                                  herding=False)
     est_stats_competition = sim_wrapper.calc_all_ests_stats("sample_", T_start, T_end, 
                                                 n_listings, tau=tau, 
                                                 tsr_est_types=tsr_est_types,

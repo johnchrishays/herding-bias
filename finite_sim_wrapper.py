@@ -34,7 +34,8 @@ Listing_dfs - df indexed by listing ID, gives number of bookings available at en
 def mult_runs_events(choice_type, k, exp_type, exp_param, tau, alpha, epsilon,
                         n_runs, n_listings, T_start, T_end, 
                         a_C=None, a_L=None,
-                        tsr_est_types=None, cr_weight=None, num_threads=45, herding=False, recency=True):
+                        tsr_est_types=None, cr_weight=None, num_threads=45, 
+                        herding=False, recency=True):
     s_full = {l: int(n_listings * exp_param['rhos_exp'][l]) for l in exp_param['thetas_exp']}
 
     events = {} #
@@ -61,12 +62,23 @@ def mult_runs_events(choice_type, k, exp_type, exp_param, tau, alpha, epsilon,
     
     pool = Pool(num_threads)
     
-    for events_one_run in pool.map(partial(finite_sim.run_mc_listing_ids, choice_type, n_listings, k, 
-                                        copy.copy(s_full),  
-                    copy.copy(s_full), 
-                    T_end, exp_param['thetas_exp'], 
-                    exp_param['gammas_exp'], exp_param['v_gammas_exp'], 
-                    tau, exp_param['lam_gammas_exp'], alpha, epsilon, herding=herding, recency=recency), range(n_runs)):
+    for events_one_run in pool.map(partial(finite_sim.run_mc_listing_ids, 
+                                           choice_type, 
+                                           n_listings, 
+                                           k, 
+                                           copy.copy(s_full),  
+                                           copy.copy(s_full), 
+                                           T_end, 
+                                           exp_param['thetas_exp'], 
+                                           exp_param['gammas_exp'], 
+                                           exp_param['v_gammas_exp'], 
+                                           tau, 
+                                           exp_param['lam_gammas_exp'], 
+                                           alpha, 
+                                           epsilon, 
+                                           herding=herding, 
+                                           recency=recency), 
+                                   range(n_runs)):
         if exp_type=="cr":
             events['cr'].append([events_one_run['events']])
             event_times['cr'].append([events_one_run['listing_times']])
@@ -91,7 +103,7 @@ def mult_runs_events(choice_type, k, exp_type, exp_param, tau, alpha, epsilon,
 
 
 def mult_runs_global_conditions(choice_type, k, global_cond, params, tau, alpha, epsilon,
-                                n_runs, n_listings, T_start, T_end, num_threads=50):
+                                n_runs, n_listings, T_start, T_end, num_threads=50, herding=True, recency=False):
     """
     Runs simulations for GC and GT conditions
     """
@@ -107,20 +119,43 @@ def mult_runs_global_conditions(choice_type, k, global_cond, params, tau, alpha,
 
     pool = Pool(num_threads)
     if global_cond == 'global_treat':
-        for events_one_run in pool.map(partial(finite_sim.run_mc_listing_ids, choice_type, n_listings, k, 
-                                            copy.copy(s_full), copy.copy(s_full), 
-                                    T_end, params['thetas_t'], 
-                                    params['gammas_t'], params['v_gammas_t'], 
-                                    tau, params['lam_gammas_t'], alpha, epsilon, herding=herding, recency=recency), range(n_runs)):
+        for events_one_run in pool.map(partial(finite_sim.run_mc_listing_ids, 
+                                               choice_type, 
+                                               n_listings, 
+                                               k, 
+                                               copy.copy(s_full), 
+                                               copy.copy(s_full), 
+                                               T_end, 
+                                               params['thetas_t'], 
+                                               params['gammas_t'], 
+                                               params['v_gammas_t'], 
+                                               tau, 
+                                               params['lam_gammas_t'], 
+                                               alpha, 
+                                               epsilon, 
+                                               herding=herding, 
+                                               recency=recency), 
+                                       range(n_runs)):
             events.append([events_one_run])
     
     elif global_cond == 'global_control':
-        for events_one_run in pool.map(partial(finite_sim.run_mc_listing_ids, choice_type, n_listings, k, 
-                                            copy.copy(s_full), 
-                            copy.copy(s_full), 
-                            T_end, params['thetas_c'], 
-                            params['gammas_c'], params['v_gammas_c'], 
-                            tau, params['lam_gammas_c'], alpha, epsilon, herding=herding, recency=recency), range(n_runs)):
+        for events_one_run in pool.map(partial(finite_sim.run_mc_listing_ids, 
+                                               choice_type, 
+                                               n_listings, 
+                                               k, 
+                                               copy.copy(s_full), 
+                                               copy.copy(s_full), 
+                                               T_end, 
+                                               params['thetas_c'], 
+                                               params['gammas_c'], 
+                                               params['v_gammas_c'], 
+                                               tau, 
+                                               params['lam_gammas_c'], 
+                                               alpha, 
+                                               epsilon, 
+                                               herding=herding, 
+                                               recency=recency), 
+                                       range(n_runs)):
             events.append([events_one_run])
     pool.close()
     pool.join()
@@ -134,8 +169,10 @@ def calc_all_global_cond_rates(T_start, T_end, n, events_mult_sims):
     booking_rates = []
     for events in events_mult_sims:
         events = events[0]
-        bookings = events[(events['is_customer']==1) & (events['time']>T_start)
-                        & (events['time']<T_end) & (events['choice_type']!='outside_option')]
+        bookings = events[(events['is_customer']==1) & 
+                          (events['time']>T_start) & 
+                          (events['time']<T_end) & 
+                          (events['choice_type']!='outside_option')]
         n_bookings = len(bookings)
         booking_rate = n_bookings / n / (T_end - T_start)
         booking_rates.append(booking_rate)
@@ -168,16 +205,26 @@ def calc_estimates_from_events(events, exp_type, exp_params,
             estimates[lam]['cr'] = []
             for events_one_run in events[lam]['events']['cr']:
                 events_one_run = events_one_run[0]
-                est = finite_sim.calc_cr_estimate(T_start, T_end, n_listings, events_one_run, a_C, 
-                                                exp_params[lam]['gammas_c'], exp_params[lam]['gammas_t'])
+                est = finite_sim.calc_cr_estimate(T_start, 
+                                                  T_end, 
+                                                  n_listings, 
+                                                  events_one_run, 
+                                                  a_C, 
+                                                  exp_params[lam]['gammas_c'], 
+                                                  exp_params[lam]['gammas_t'])
                 estimates[lam]['cr'].append(est)
             
         elif exp_type == 'lr':
             estimates[lam]['lr'] = []
             for events_one_run in events[lam]['events']['lr']:
                 events_one_run = events_one_run[0]
-                est = finite_sim.calc_lr_estimate(T_start, T_end, n_listings, events_one_run, a_L, 
-                                                  exp_params[lam]['thetas_c'], exp_params[lam]['thetas_t'])
+                est = finite_sim.calc_lr_estimate(T_start, 
+                                                  T_end, 
+                                                  n_listings, 
+                                                  events_one_run, 
+                                                  a_L, 
+                                                  exp_params[lam]['thetas_c'], 
+                                                  exp_params[lam]['thetas_t'])
                 estimates[lam]['lr'].append(est)
         elif exp_type == 'tsr':
             any_tsr_exp = list(events[lam]['events'].keys())[0]
@@ -185,12 +232,18 @@ def calc_estimates_from_events(events, exp_type, exp_params,
                 estimates[lam][est] = []
             for events_one_run in events[lam]['events'][any_tsr_exp]: # all tsr_ests have same events
                 events_one_run = events_one_run[0]
-                ests = finite_sim.calc_tsr_estimate(T_start, T_end, n_listings, cr_weights[lam], 
+                ests = finite_sim.calc_tsr_estimate(T_start, 
+                                                    T_end, 
+                                                    n_listings, 
+                                                    cr_weights[lam], 
                                                     events_one_run, 
-                                                    a_C[lam], a_L[lam], 
-                                            exp_params[lam]['gammas_c'], exp_params[lam]['gammas_t'],
-                                            exp_params[lam]['thetas_c'], exp_params[lam]['thetas_t'],
-                                            tsr_est_types)
+                                                    a_C[lam], 
+                                                    a_L[lam], 
+                                                    exp_params[lam]['gammas_c'], 
+                                                    exp_params[lam]['gammas_t'], 
+                                                    exp_params[lam]['thetas_c'], 
+                                                    exp_params[lam]['thetas_t'], 
+                                                    tsr_est_types)
                 for est in tsr_est_types:
                     estimates[lam][est].append(ests[est])
         
@@ -199,8 +252,11 @@ def calc_estimates_from_events(events, exp_type, exp_params,
             estimates[lam]['gc'] = []
             for events_one_run in events[lam]['events']['cr']:
                 events_one_run = events_one_run[0]
-                est = finite_sim.calc_global_estimate(T_start, T_end, n_listings, events_one_run, 
-                                                exp_params[lam]['gammas_c'])
+                est = finite_sim.calc_global_estimate(T_start, 
+                                                      T_end, 
+                                                      n_listings, 
+                                                      events_one_run, 
+                                                      exp_params[lam]['gammas_c'])
                 estimates[lam]['gc'].append(est)
          
     if exp_type == 'cr':
