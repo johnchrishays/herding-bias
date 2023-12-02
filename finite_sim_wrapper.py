@@ -541,6 +541,86 @@ def calc_all_ests_stats(file_path, T_start, T_end, n_listings,
     total_stats_df.to_csv(file_path+"total_stats"+fname_suffix)
     return total_stats_df
 
+def get_plot(ax, est_stats, stat, title, ylab, xlab, log_scale=True, legend=False):
+
+    rgb_dict = {'cr': (0, 114, 178), 'lr':(255, 127, 14),
+                'tsrn':(0, 158, 115), 'tsri1':(240, 228, 66), 
+                'tsri2':(204, 121, 167),
+                'cluster':(86, 180, 233)}
+
+    rgb_0_1_array = np.array(list(rgb_dict.values()))/255
+
+    (est_stats
+        .unstack(level=0)[stat]
+        .plot(kind='bar', color=rgb_0_1_array, ax=ax))
+
+    if log_scale:
+        ax.set_yscale('log')
+    ax.set_title(title)
+    if legend:
+        ax.legend(loc=[1.02,0.5])
+    else:
+        ax.get_legend().remove()
+    ax.set_ylabel(ylab)
+    ax.set_xlabel(xlab)
+    sns.despine()
+
+def plot_all_stats(est_stats, suptitle):
+    fig, axes = plt.subplots(nrows=3, ncols=2, figsize=(10,10))
+    log_scale = False
+
+    get_plot(axes[0][0], 
+             est_stats, 
+             'bias', 
+             "", 
+             "Bias", 
+             "Relative user arrival rate $\lambda/\\tau$",
+             log_scale=log_scale)
+
+    get_plot(axes[0][1], 
+             est_stats, 
+             'bias_over_GTE', 
+             "", 
+             "Bias / GTE", 
+             "Relative user arrival rate $\lambda/\\tau$",
+             log_scale=log_scale)
+
+    get_plot(axes[1][0], 
+             est_stats, 
+             'std', 
+             "", 
+             "SE", 
+             "Relative user arrival rate $\lambda/\\tau$",
+             log_scale=log_scale)
+
+    get_plot(axes[1][1], 
+             est_stats, 
+             'std_over_GTE', 
+             "", 
+             "SE / GTE", 
+             "Relative user arrival rate $\lambda/\\tau$",
+             log_scale=log_scale)
+
+    get_plot(axes[2][0], 
+             est_stats, 
+             'rmse', 
+             "", 
+             "RMSE", 
+             "Relative user arrival rate $\lambda/\\tau$",
+             log_scale=log_scale)
+
+    get_plot(axes[2][1], 
+             est_stats, 
+             'rmse_over_GTE', 
+             "", 
+             "RMSE / GTE", 
+             "Relative user arrival rate $\lambda/\\tau$",
+             log_scale=log_scale,
+             legend=True)
+
+    fig.suptitle(suptitle)
+    return fig, axes
+
 def plot_and_save(file_path, total_stats_df):
     stat = 'abs_bias_over_GTE'
 
