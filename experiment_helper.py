@@ -95,7 +95,6 @@ def calc_tsr_estimator(booking_rates, thetas_c, thetas_t,
     tc = sum([booking_rates[c][l] for l in thetas_c for c in gammas_t])
     tt = sum([booking_rates[c][l] for l in thetas_t for c in gammas_t])
 
-
     # Calculates estimates of customer competition and listing competition,
     # as defined in the paper. 
     customer_comp = cc/((1-a_C)*(1-a_L)) - ct/((1-a_C)*a_L) 
@@ -114,18 +113,31 @@ def calc_tsr_estimator(booking_rates, thetas_c, thetas_t,
                     + 1 * scale * tc/(a_C*(1-a_L))
                 )
 
+
     tsri_2 = (customer_side_weight * (tt/(a_C*a_L) - ct/((1-a_C)*a_L ))  #customer side est
                     + (1-customer_side_weight) *(tt/(a_C*a_L) - tc/(a_C*(1-a_L))) #listing side est
                     - 4 * scale * cc/((1-a_C)*(1-a_L))
                     + 2 * scale * ct/((1-a_C)*a_L)
                     + 2 * scale * tc/(a_C*(1-a_L))
                 )
-    
+
+
+    # Implements MRD estimators
+    yt = tt / (a_C*a_L)
+    yib = tc / (a_C * (1-a_L))
+    yis = ct / ((1 - a_C) * a_L)
+    yc = cc / ((1 - a_C) * (1 - a_L))
+
+    tau_direct = yt - yib - yis + yc
+    tau_spillover_seller = yis - yc
+    tau_spillover_buyer = yib - yc
+    tau_avg = yt - yc
     
    
     return {'cc': cc, 'ct': ct, 'tc': tc, "tt":tt,
             'tsr_est_naive':tsr_est_naive,
             'tsri_1.0':tsri_1, 'tsri_2.0':tsri_2,
+            'tau_direct':tau_direct, 'tau_spillover_seller':tau_spillover_seller, 'tau_spillover_buyer':tau_spillover_buyer, 'tau_avg':tau_avg,
             'customer_comp':customer_comp, 'listing_comp':listing_comp}
     
 

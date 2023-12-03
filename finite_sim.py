@@ -329,6 +329,22 @@ def calc_tsr_estimate(T_start, T_end, n, customer_side_weight, events, a_C, a_L,
                  )/(n*(T_end-T_start))
         estimators['tsri_'+str(k)] = tsri_est
 
+
+    n_total = (n*(T_end-T_start))
+    yt = (n_11 / (a_C*a_L)) / n_total
+    yib = (n_10 / (a_C * (1-a_L))) / n_total
+    yis = (n_01 / ((1 - a_C) * a_L)) / n_total
+    yc = (n_00 / ((1 - a_C) * (1 - a_L))) / n_total
+
+    if 'mrd_direct' in tsr_est_types:
+        estimators['mrd_direct'] = yt - yib - yis + yc
+    if 'mrd_spillover_seller' in tsr_est_types:
+        estimators['mrd_spillover_seller'] = yis - yc
+    if 'mrd_spillover_buyer' in tsr_est_types:
+        estimators['mrd_spillover_buyer'] = yib - yc
+    if 'mrd_avg' in tsr_est_types:
+        estimators['mrd_avg'] = yt - yc
+
     return estimators
 
 
