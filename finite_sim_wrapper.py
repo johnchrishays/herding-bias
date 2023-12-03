@@ -535,7 +535,8 @@ def calc_all_ests_stats(file_path, T_start, T_end, n_listings,
     for est in tsr_est_types:
         tsr_opt_stats[est] = calc_estimator_stats(est, tsr_opt_estimates[est], gtes, tau, 
                                                     normalized=normalized_by_lam)
-        
+
+
     total_stats_df = pd.concat([cr_stats, lr_stats]
                                 +[tsr_opt_stats[tsr_est] for tsr_est in tsr_est_types])
     total_stats_df.to_csv(file_path+"total_stats"+fname_suffix)

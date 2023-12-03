@@ -42,7 +42,7 @@ tsr_ac_al_values = [.5]
 cr_a_C = 0.5
 lr_a_L = 0.5
 
-tsr_est_types = ['tsr_est_naive', 'tsri_1.0','tsri_2.0']
+tsr_est_types = ['tsr_est_naive', 'tsri_1.0','tsri_2.0'] + ['mrd_direct', 'mrd_spillover_seller', 'mrd_spillover_buyer', 'mrd_avg']
 
 customer_types = ['c1']
 listing_types = ['l']
