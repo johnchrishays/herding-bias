@@ -168,7 +168,7 @@ def calc_all_global_cond_rates(T_start, T_end, n, events_mult_sims):
     """
     booking_rates = []
     for events in events_mult_sims:
-        events = events[0]
+        events = events[0]['events']
         bookings = events[(events['is_customer']==1) & 
                           (events['time']>T_start) & 
                           (events['time']<T_end) & 
@@ -178,6 +178,7 @@ def calc_all_global_cond_rates(T_start, T_end, n, events_mult_sims):
         booking_rates.append(booking_rate)
 
     return booking_rates
+
 
 
 def calc_estimates_from_events(events, exp_type, exp_params, 
@@ -400,6 +401,19 @@ def calc_all_params(listing_types, rhos_pre_treat, customer_types, customer_prop
     tsr_opt_params = {}
     cr_params = {}
     lr_params = {}
+    global_params = {}
+    # re-order dict
+    vs_global = {}
+    vs_global['treat'] = {}
+    vs_global['control'] = {}
+
+    for c, c_dict in vs.items():
+        vs_global['treat'][c] = {}
+        vs_global['control'][c] = {}
+        for e, e_dict in c_dict.items():
+            for l, l_dict in e_dict.items():
+                vs_global[e][c][l] = vs[c][e][l]
+
     
     # Interpolating from cr_a_C to cr_a_L
     a_Cs = {}
@@ -431,16 +445,27 @@ def calc_all_params(listing_types, rhos_pre_treat, customer_types, customer_prop
                                                                     a_Cs[lam], a_Ls[lam], 
                                                                     customer_types, customer_proportions,
                                                                     alpha, vs, lam)
+        global_params[lam] = {
+            "rhos_c": rhos_pre_treat,
+            "gammas_c": customer_types,
+            "v_gammas_c": vs_global['control'],
+            "lam_gammas_c": {c: lam for c in customer_types},
+            "rhos_c": rhos_pre_treat,
+            "gammas_t": customer_types,
+            "v_gammas_t": vs_global['treat'],
+            "lam_gammas_t": {c: lam for c in customer_types},
+            "rhos_t": rhos_pre_treat
+        }
     return {'a_Cs':a_Cs, 'a_Ls':a_Ls, 'cr_weights':cr_weights, 
             'cr_params':cr_params, 'lr_params':lr_params, 'tsr_fixed_params':tsr_fixed_params,
             'tsr_opt_params':tsr_opt_params, 'cr_a_C':cr_a_C, 'lr_a_L':lr_a_L, 
-            'tsr_ac_al_values':tsr_ac_al_values}
-    
+            'tsr_ac_al_values':tsr_ac_al_values, 'global_params': global_params}
+
 
 def run_all_sims(n_runs, n_listings, T_start, T_end, choice_set_type, k, 
                  alpha, epsilon, tau, lams,
                  a_Cs, a_Ls, cr_weights, cr_params, lr_params, tsr_fixed_params, tsr_opt_params,
-                 cr_a_C, lr_a_L, tsr_ac_al_values, herding=False, recency=True):
+                 cr_a_C, lr_a_L, tsr_ac_al_values, global_params, herding=False, recency=True):
     """
     Runs multiple simulations for all experiment types.
     """
@@ -449,6 +474,10 @@ def run_all_sims(n_runs, n_listings, T_start, T_end, choice_set_type, k,
     lr_events = {}
     tsr_opt_events = {}
     tsr_fixed_events = {}
+    global_control_events = {}
+    global_treat_events = {}
+    global_control_rates = {}
+    global_treat_rates = {}
     gtes = {}
     
     for val in tsr_ac_al_values:
@@ -479,9 +508,43 @@ def run_all_sims(n_runs, n_listings, T_start, T_end, choice_set_type, k,
                                                     tsr_est_types=tsr_est_types,
                                                 cr_weight=cr_weights[lam], herding=herding, recency=recency)
 
-            
-        global_solution = exp_wrapper.calc_gte_from_exp_type("customer", tau, epsilon, **cr_params[lam])
-        gtes[lam] = global_solution['gte']
+        
+        global_control_events[lam] = mult_runs_global_conditions(choice_set_type, 
+                                                                  k, 
+                                                                  "global_control", 
+                                                                  global_params[lam], 
+                                                                  tau, 
+                                                                  alpha, 
+                                                                  epsilon, 
+                                                                  n_runs, 
+                                                                  n_listings, 
+                                                                  T_start[lam], 
+                                                                  T_end[lam],
+                                                                  herding=herding, 
+                                                                  recency=recency)
+        global_treat_events[lam] = mult_runs_global_conditions(choice_set_type, 
+                                                                  k, 
+                                                                  "global_treat", 
+                                                                  global_params[lam], 
+                                                                  tau, 
+                                                                  alpha, 
+                                                                  epsilon, 
+                                                                  n_runs, 
+                                                                  n_listings, 
+                                                                  T_start[lam], 
+                                                                  T_end[lam],
+                                                                  herding=herding, 
+                                                                  recency=recency)
+        
+        global_control_rates[lam] = calc_all_global_cond_rates(T_start[lam], 
+                                                               T_end[lam], 
+                                                               n_listings, 
+                                                               global_control_events[lam])
+        global_treat_rates[lam] = calc_all_global_cond_rates(T_start[lam], 
+                                                             T_end[lam], 
+                                                             n_listings, 
+                                                             global_treat_events[lam])
+        gtes[lam] = np.mean(global_treat_rates[lam]) - np.mean(global_control_rates[lam])
         t1 = time.time()
         print("Time elapsed: ", round(t1-t0,2))
 
@@ -496,7 +559,7 @@ def calc_all_ests_stats(file_path, T_start, T_end, n_listings,
                     tsr_ac_al_values, cr_weights,
                     cr_params, lr_params, tsr_opt_params, tsr_fixed_params,
                     events, 
-                    tau, tsr_est_types, 
+                    tau, tsr_est_types, global_params,
                     gtes=None, normalized_by_lam=True,
                     varying_time_horizons=False, fname_suffix=".csv"):
     """
