@@ -9,11 +9,14 @@ from multiprocessing import Pool
 from functools import partial
 
 import matplotlib.pyplot as plt
+import matplotlib.ticker as tck 
+from matplotlib.ticker import ScalarFormatter
 import seaborn as sns
 
 import exp_wrapper 
 import experiment_helper
 import finite_sim
+
 
 import os
 import csv
@@ -39,26 +42,16 @@ def mult_runs_events(choice_type, k, exp_type, exp_param, tau, alpha, epsilon,
     s_full = {l: int(n_listings * exp_param['rhos_exp'][l]) for l in exp_param['thetas_exp']}
 
     events = {} #
-    event_times = {}
-    listings_dfs = {}
     
     if exp_type == 'cr':
         events['cr'] = []
-        event_times['cr'] = []
-        listings_dfs['cr'] = []
     elif exp_type == 'lr':
         events['lr'] = []
-        event_times['lr'] = []
-        listings_dfs['lr'] = []
     elif exp_type == 'clustered':
         events['clustered'] = []
-        event_times['clustered'] = []
-        listings_dfs['clustered'] = []        
     elif exp_type == 'tsr':
         for est in tsr_est_types:
             events[est] = []
-            event_times[est] = []
-            listings_dfs[est] = []
     
     pool = Pool(num_threads)
     
@@ -66,8 +59,8 @@ def mult_runs_events(choice_type, k, exp_type, exp_param, tau, alpha, epsilon,
                                            choice_type, 
                                            n_listings, 
                                            k, 
-                                           copy.copy(s_full),  
-                                           copy.copy(s_full), 
+                                           s_full,  
+                                           s_full, 
                                            T_end, 
                                            exp_param['thetas_exp'], 
                                            exp_param['gammas_exp'], 
@@ -81,25 +74,17 @@ def mult_runs_events(choice_type, k, exp_type, exp_param, tau, alpha, epsilon,
                                    range(n_runs)):
         if exp_type=="cr":
             events['cr'].append([events_one_run['events']])
-            event_times['cr'].append([events_one_run['listing_times']])
-            listings_dfs['cr'].append([events_one_run['listing_dfs']])
         elif exp_type=='lr':
             events['lr'].append([events_one_run['events']])
-            event_times['lr'].append([events_one_run['listing_times']])
-            listings_dfs['lr'].append([events_one_run['listing_dfs']])
         elif exp_type=='clustered':
             events['clustered'].append([events_one_run['events']])
-            event_times['clustered'].append([events_one_run['listing_times']])
-            listings_dfs['clustered'].append([events_one_run['listing_dfs']])            
         elif exp_type == 'tsr':
             for est in tsr_est_types:
                 events[est].append([events_one_run['events']])
-                event_times[est].append([events_one_run['listing_times']])
-                listings_dfs[est].append([events_one_run['listing_dfs']])
     pool.close()
     pool.join()
 
-    return {'events':events, 'event_times':event_times, 'listing_dfs':listings_dfs}
+    return {'events':events}
 
 
 def mult_runs_global_conditions(choice_type, k, global_cond, params, tau, alpha, epsilon,
@@ -123,8 +108,8 @@ def mult_runs_global_conditions(choice_type, k, global_cond, params, tau, alpha,
                                                choice_type, 
                                                n_listings, 
                                                k, 
-                                               copy.copy(s_full), 
-                                               copy.copy(s_full), 
+                                               s_full, 
+                                               s_full, 
                                                T_end, 
                                                params['thetas_t'], 
                                                params['gammas_t'], 
@@ -143,8 +128,8 @@ def mult_runs_global_conditions(choice_type, k, global_cond, params, tau, alpha,
                                                choice_type, 
                                                n_listings, 
                                                k, 
-                                               copy.copy(s_full), 
-                                               copy.copy(s_full), 
+                                               s_full, 
+                                               s_full, 
                                                T_end, 
                                                params['thetas_c'], 
                                                params['gammas_c'], 
@@ -168,7 +153,7 @@ def calc_all_global_cond_rates(T_start, T_end, n, events_mult_sims):
     """
     booking_rates = []
     for events in events_mult_sims:
-        events = events[0]
+        events = events[0]['events']
         bookings = events[(events['is_customer']==1) & 
                           (events['time']>T_start) & 
                           (events['time']<T_end) & 
@@ -178,6 +163,7 @@ def calc_all_global_cond_rates(T_start, T_end, n, events_mult_sims):
         booking_rates.append(booking_rate)
 
     return booking_rates
+
 
 
 def calc_estimates_from_events(events, exp_type, exp_params, 
@@ -400,6 +386,19 @@ def calc_all_params(listing_types, rhos_pre_treat, customer_types, customer_prop
     tsr_opt_params = {}
     cr_params = {}
     lr_params = {}
+    global_params = {}
+    # re-order dict
+    vs_global = {}
+    vs_global['treat'] = {}
+    vs_global['control'] = {}
+
+    for c, c_dict in vs.items():
+        vs_global['treat'][c] = {}
+        vs_global['control'][c] = {}
+        for e, e_dict in c_dict.items():
+            for l, l_dict in e_dict.items():
+                vs_global[e][c][l] = vs[c][e][l]
+
     
     # Interpolating from cr_a_C to cr_a_L
     a_Cs = {}
@@ -431,24 +430,39 @@ def calc_all_params(listing_types, rhos_pre_treat, customer_types, customer_prop
                                                                     a_Cs[lam], a_Ls[lam], 
                                                                     customer_types, customer_proportions,
                                                                     alpha, vs, lam)
+        global_params[lam] = {
+            "rhos_c": rhos_pre_treat,
+            "gammas_c": customer_types,
+            "v_gammas_c": vs_global['control'],
+            "lam_gammas_c": {c: lam for c in customer_types},
+            "rhos_c": rhos_pre_treat,
+            "gammas_t": customer_types,
+            "v_gammas_t": vs_global['treat'],
+            "lam_gammas_t": {c: lam for c in customer_types},
+            "rhos_t": rhos_pre_treat
+        }
     return {'a_Cs':a_Cs, 'a_Ls':a_Ls, 'cr_weights':cr_weights, 
             'cr_params':cr_params, 'lr_params':lr_params, 'tsr_fixed_params':tsr_fixed_params,
             'tsr_opt_params':tsr_opt_params, 'cr_a_C':cr_a_C, 'lr_a_L':lr_a_L, 
-            'tsr_ac_al_values':tsr_ac_al_values}
-    
+            'tsr_ac_al_values':tsr_ac_al_values, 'global_params': global_params}
+
 
 def run_all_sims(n_runs, n_listings, T_start, T_end, choice_set_type, k, 
                  alpha, epsilon, tau, lams,
                  a_Cs, a_Ls, cr_weights, cr_params, lr_params, tsr_fixed_params, tsr_opt_params,
-                 cr_a_C, lr_a_L, tsr_ac_al_values, herding=False, recency=True):
+                 cr_a_C, lr_a_L, tsr_ac_al_values, global_params, herding=False, recency=True):
     """
     Runs multiple simulations for all experiment types.
     """
-    tsr_est_types = ['tsr_est_naive', 'tsr_est_gw','tsr_est_hl', 'tsr_est_robust']
+    tsr_est_types = ['tsr_est_naive', 'tsr_est_gw','tsr_est_hl', 'tsr_est_robust'] + ['mrd_direct', 'mrd_spillover_seller', 'mrd_spillover_buyer', 'mrd_avg']
     cr_events = {}
     lr_events = {}
     tsr_opt_events = {}
     tsr_fixed_events = {}
+    global_control_events = {}
+    global_treat_events = {}
+    global_control_rates = {}
+    global_treat_rates = {}
     gtes = {}
     
     for val in tsr_ac_al_values:
@@ -479,9 +493,43 @@ def run_all_sims(n_runs, n_listings, T_start, T_end, choice_set_type, k,
                                                     tsr_est_types=tsr_est_types,
                                                 cr_weight=cr_weights[lam], herding=herding, recency=recency)
 
-            
-        global_solution = exp_wrapper.calc_gte_from_exp_type("customer", tau, epsilon, **cr_params[lam])
-        gtes[lam] = global_solution['gte']
+        
+        global_control_events[lam] = mult_runs_global_conditions(choice_set_type, 
+                                                                  k, 
+                                                                  "global_control", 
+                                                                  global_params[lam], 
+                                                                  tau, 
+                                                                  alpha, 
+                                                                  epsilon, 
+                                                                  n_runs, 
+                                                                  n_listings, 
+                                                                  T_start[lam], 
+                                                                  T_end[lam],
+                                                                  herding=herding, 
+                                                                  recency=recency)
+        global_treat_events[lam] = mult_runs_global_conditions(choice_set_type, 
+                                                                  k, 
+                                                                  "global_treat", 
+                                                                  global_params[lam], 
+                                                                  tau, 
+                                                                  alpha, 
+                                                                  epsilon, 
+                                                                  n_runs, 
+                                                                  n_listings, 
+                                                                  T_start[lam], 
+                                                                  T_end[lam],
+                                                                  herding=herding, 
+                                                                  recency=recency)
+        
+        global_control_rates[lam] = calc_all_global_cond_rates(T_start[lam], 
+                                                               T_end[lam], 
+                                                               n_listings, 
+                                                               global_control_events[lam])
+        global_treat_rates[lam] = calc_all_global_cond_rates(T_start[lam], 
+                                                             T_end[lam], 
+                                                             n_listings, 
+                                                             global_treat_events[lam])
+        gtes[lam] = np.mean(global_treat_rates[lam]) - np.mean(global_control_rates[lam])
         t1 = time.time()
         print("Time elapsed: ", round(t1-t0,2))
 
@@ -496,7 +544,7 @@ def calc_all_ests_stats(file_path, T_start, T_end, n_listings,
                     tsr_ac_al_values, cr_weights,
                     cr_params, lr_params, tsr_opt_params, tsr_fixed_params,
                     events, 
-                    tau, tsr_est_types, 
+                    tau, tsr_est_types, global_params,
                     gtes=None, normalized_by_lam=True,
                     varying_time_horizons=False, fname_suffix=".csv"):
     """
@@ -542,21 +590,21 @@ def calc_all_ests_stats(file_path, T_start, T_end, n_listings,
     total_stats_df.to_csv(file_path+"total_stats"+fname_suffix)
     return total_stats_df
 
-def get_plot(ax, est_stats, stat, title, ylab, xlab, log_scale=True, legend=False):
+def get_plot(ax, est_stats, stat, title, ylab, xlab, yscale="linear", legend=False, pal="Set3"):
 
-    rgb_dict = {'cr': (0, 114, 178), 'lr':(255, 127, 14),
-                'tsrn':(0, 158, 115), 'tsri1':(240, 228, 66), 
-                'tsri2':(204, 121, 167),
-                'cluster':(86, 180, 233)}
-
-    rgb_0_1_array = np.array(list(rgb_dict.values()))/255
+    rgb_0_1_array = np.array(sns.color_palette(pal, est_stats.index.levshape[0]))
 
     (est_stats
         .unstack(level=0)[stat]
         .plot(kind='bar', color=rgb_0_1_array, ax=ax))
 
-    if log_scale:
-        ax.set_yscale('log')
+    if yscale:
+        ax.set_yscale(yscale)
+        if (stat == "bias" or stat == "bias_over_GTE") and yscale == "symlog":
+            ax.set_ylim((-10, 10))
+        elif (yscale=="symlog"):
+            ax.set_ylim((0, 50))
+
     ax.set_title(title)
     if legend:
         ax.legend(loc=[1.02,0.5])
@@ -564,11 +612,13 @@ def get_plot(ax, est_stats, stat, title, ylab, xlab, log_scale=True, legend=Fals
         ax.get_legend().remove()
     ax.set_ylabel(ylab)
     ax.set_xlabel(xlab)
+    ax.yaxis.set_major_formatter(ScalarFormatter())
+    ax.yaxis.set_minor_locator(tck.MultipleLocator(1))
     sns.despine()
 
-def plot_all_stats(est_stats, suptitle):
+def plot_all_stats(est_stats, suptitle, yscale = "symlog"):
+
     fig, axes = plt.subplots(nrows=3, ncols=2, figsize=(10,10))
-    log_scale = False
 
     get_plot(axes[0][0], 
              est_stats, 
@@ -576,7 +626,7 @@ def plot_all_stats(est_stats, suptitle):
              "", 
              "Bias", 
              "Relative user arrival rate $\lambda/\\tau$",
-             log_scale=log_scale)
+             yscale=yscale)
 
     get_plot(axes[0][1], 
              est_stats, 
@@ -584,7 +634,7 @@ def plot_all_stats(est_stats, suptitle):
              "", 
              "Bias / GTE", 
              "Relative user arrival rate $\lambda/\\tau$",
-             log_scale=log_scale)
+             yscale=yscale)
 
     get_plot(axes[1][0], 
              est_stats, 
@@ -592,7 +642,7 @@ def plot_all_stats(est_stats, suptitle):
              "", 
              "SE", 
              "Relative user arrival rate $\lambda/\\tau$",
-             log_scale=log_scale)
+             yscale=yscale)
 
     get_plot(axes[1][1], 
              est_stats, 
@@ -600,7 +650,7 @@ def plot_all_stats(est_stats, suptitle):
              "", 
              "SE / GTE", 
              "Relative user arrival rate $\lambda/\\tau$",
-             log_scale=log_scale)
+             yscale=yscale)
 
     get_plot(axes[2][0], 
              est_stats, 
@@ -608,7 +658,7 @@ def plot_all_stats(est_stats, suptitle):
              "", 
              "RMSE", 
              "Relative user arrival rate $\lambda/\\tau$",
-             log_scale=log_scale)
+             yscale=yscale)
 
     get_plot(axes[2][1], 
              est_stats, 
@@ -616,7 +666,7 @@ def plot_all_stats(est_stats, suptitle):
              "", 
              "RMSE / GTE", 
              "Relative user arrival rate $\lambda/\\tau$",
-             log_scale=log_scale,
+             yscale=yscale,
              legend=True)
 
     fig.suptitle(suptitle)
