@@ -30,7 +30,7 @@ at which listing became booked or unavailable.
 Listing_dfs - df indexed by listing ID, gives number of bookings available at end of time horizon.
 """
 
-def draw_next_event(n, s_t, s_full, thetas, gammas, tau, lam_gammas):
+def draw_next_event(n, s_t, s_full, thetas, gammas, tau, lam_gammas, herding=False):
     """
     Simulates next event, whether listing replenishes first or another customer arrives first.
     """
@@ -51,9 +51,12 @@ def draw_next_event(n, s_t, s_full, thetas, gammas, tau, lam_gammas):
     else: 
         rep_times = {} #replenishment
         for theta in thetas:
-            num_booked = s_full[theta] - s_t[theta]
+            if herding:
+                num_booked =  s_t[theta] - s_full[theta]
+            else:
+                num_booked = s_full[theta] - s_t[theta]
             if num_booked > 0:
-                rep_times[theta] = min(np.random.exponential(1/tau, num_booked))
+                rep_times[theta] = np.random.exponential(1/( num_booked * tau))
         first_listing = min(rep_times.items(), key=itemgetter(1))
 
         if first_listing[1] < first_customer[1]: #listing replenishes first
@@ -68,31 +71,28 @@ def draw_next_event(n, s_t, s_full, thetas, gammas, tau, lam_gammas):
            'next_customer':next_customer, 'elapsed_time':elapsed_time}
 
 
-def customer_choice_alpha(n, s_t, thetas, gamma, v_gamma, alpha, epsilon):
+def customer_choice_alpha(n, s_t, thetas, gamma, v_gamma, alpha, epsilon, herding=False):
     """
     Upon arrival of a customer, customer samples items into their consideration set
     with probability alpha.
     """
     n_total_avail = sum(s_t.values())
-    sampling_probs = {theta: s_t[theta] for theta in thetas}
-    norm_constant = sum(sampling_probs.values())
-    sampling_probs = {theta: sampling_probs[theta]/norm_constant for theta in thetas}
-    
-    all_available =  [[theta]*int(sampling_probs[theta]*n) for theta in thetas]
-    all_available = [item for sublist in all_available for item in sublist]
-    choice_set = random.sample(all_available, int(n_total_avail*alpha))
-    
-    choices, counts = np.unique(choice_set, return_counts=True)
-    choice_counts = dict(zip(choices, counts))
     
     #choose from choice set
-    choice_set_util = sum([v_gamma[choice]*choice_counts[choice] 
-                           for choice in choice_counts.keys()])
+    if herding:
+        choice_set_util = sum([alpha*v_gamma[theta]*s_t[theta] 
+                            for theta in s_t])
 
-    choice_probs = {choice:choice_counts[choice]*v_gamma[choice]/(choice_set_util+epsilon*n) 
-                    for choice in choice_counts.keys()}
+        choice_probs = {theta:alpha*s_t[theta]*v_gamma[theta]/(choice_set_util+epsilon*n) 
+                        for theta in s_t}
+    else:
+        choice_set_util = sum([alpha*v_gamma[theta]*s_t[theta] / n_total_avail * n
+                            for theta in s_t])
+
+        choice_probs = {theta:alpha*s_t[theta]*v_gamma[theta] / n_total_avail * n / (choice_set_util+epsilon*n) 
+                        for theta in s_t}
+
     choice_probs['outside_option'] = epsilon*n / (choice_set_util + epsilon*n)
-
     choices, probs = zip(*choice_probs.items())
     choice = np.random.choice(choices, p=probs)
     
@@ -131,9 +131,9 @@ def customer_choice_finite_k_no_rec(n, k, s_t, thetas, gamma, v_gamma, alpha, ep
 
 
 
-def customer_choice(choice_set_type, n, k, s_t, thetas, gamma, vs_gamma, alpha, epsilon):
+def customer_choice(choice_set_type, n, k, s_t, thetas, gamma, vs_gamma, alpha, epsilon, herding=False):
     if choice_set_type == 'alpha':
-        choice = customer_choice_alpha(n, s_t, thetas, gamma, vs_gamma, alpha, epsilon)
+        choice = customer_choice_alpha(n, s_t, thetas, gamma, vs_gamma, alpha, epsilon, herding)
     elif choice_set_type == 'finite_k':
         choice = customer_choice_finite_k_no_rec(n, k, s_t, thetas, gamma, vs_gamma, alpha, epsilon)
     else:
@@ -164,20 +164,7 @@ def run_mc_listing_ids(choice_set_type, n, k, s_0, s_full, T, thetas, gammas, vs
     # Initialize listings_df - tracks each listing and its type 
     # and availability status
     n_listings = sum(s_full.values())
-    listing_types = []
-    for l in s_0.keys():
-        listing_types.extend([l]*s_0[l])
-    availability = [1]*n_listings
-    listing_ids = ["l_"+str(i) for i in range(n_listings)]
-    listings_df = pd.DataFrame({'type':listing_types, 'available':availability}, 
-                               index=listing_ids)
     
-    # Initialize listing_times 
-    # Records the times that each listing has its 
-    # availability status changed
-    listing_times = {}
-    for l in listing_ids:
-        listing_times[l] = []
     
     while t<T:
         states.append(copy.copy(s_t))
@@ -185,7 +172,7 @@ def run_mc_listing_ids(choice_set_type, n, k, s_0, s_full, T, thetas, gammas, vs
         # next event returns customer type if event is customer arrival 
         # and listing type if event is listing being replenished
         next_event = draw_next_event(n, s_t, copy.copy(s_full), 
-                                     thetas, gammas, tau, lam_gammas)
+                                     thetas, gammas, tau, lam_gammas, herding)
         if next_event['customer_arrival']:
             if sum(s_t.values()) ==0:
                 choice = 'outside_option'
@@ -194,23 +181,12 @@ def run_mc_listing_ids(choice_set_type, n, k, s_0, s_full, T, thetas, gammas, vs
                 
                 choice = customer_choice(choice_set_type, n, k, s_t, 
                                          thetas, gamma, vs[gamma], 
-                                         alpha, epsilon)
+                                         alpha, epsilon, herding)
                 if choice != 'outside_option':
-                    s_t[choice] -= 1 
-                    # randomly select an available listing of the 
-                    # appropriate type to be chosen. Update listings_df 
-                    # and listing_times
                     if herding:
-                        available_set = listings_df[(listings_df['type']==choice)]
+                        s_t[choice] += 1 
                     else:
-                        available_set = listings_df[(listings_df['type']==choice)
-                                                    & (listings_df['available']==1)]
-                    the_chosen_one = available_set.sample(n=1).index[0]
-                    if herding:
-                        listings_df.loc[the_chosen_one, 'available'] += 1
-                    else:
-                        listings_df.loc[the_chosen_one, 'available'] = 0
-                    listing_times[the_chosen_one].append(t)
+                        s_t[choice] -= 1 
             
             # updates total list of events
             is_replenished.append(0)
@@ -220,28 +196,11 @@ def run_mc_listing_ids(choice_set_type, n, k, s_0, s_full, T, thetas, gammas, vs
         else: # next event is a listing being replenished
             # update state of MC
             l = next_event['next_listing']
-            s_t[l] += 1
-            
-            # Update listings_df. Randomly select an unavailable listing 
-            # of the appropriate type to be replenished
             if herding:
                 if recency:
-                    unavailable_set = listings_df[(listings_df['type']==l)
-                                                & (listings_df['available']>=2)]
+                    s_t[l] -= 1
             else:
-                unavailable_set = listings_df[(listings_df['type']==l)
-                                            & (listings_df['available']==0)]
-
-
-            if recency:
-                the_chosen_one = unavailable_set.sample(n=1).index[0]
-
-            if herding:
-                if recency:
-                    listings_df.loc[the_chosen_one, 'available'] -= 1
-            else:
-                listings_df.loc[the_chosen_one, 'available'] = 1
-            listing_times[the_chosen_one].append(t)
+                s_t[l] += 1
             
             is_replenished.append(1)
             is_customer.append(0)
@@ -256,7 +215,7 @@ def run_mc_listing_ids(choice_set_type, n, k, s_0, s_full, T, thetas, gammas, vs
     events['customer_type'] = customer_type
     events['choice_type'] = choice_type
 
-    return {'events':events, 'listing_times':listing_times, 'listing_dfs':listings_df}
+    return {'events':events}
         
     
 def calc_lr_estimate(T_start, T_end, n, events, a_L, thetas_c, thetas_t):
