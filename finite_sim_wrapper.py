@@ -623,7 +623,7 @@ def calc_all_ests_stats(file_path, T_start, T_end, n_listings,
     total_stats_df.to_csv(file_path+"total_stats"+fname_suffix)
     return total_stats_df
 
-def get_plot(ax, est_stats, stat, title, ylab, xlab, yscale="linear", legend=False, pal="Set3"):
+def get_plot(ax, est_stats, stat, title, ylab, xlab, yscale="linear", legend=False, pal="Set1"):
 
     rgb_0_1_array = np.array(sns.color_palette(pal, est_stats.index.levshape[0]))
 

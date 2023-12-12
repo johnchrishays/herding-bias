@@ -82,16 +82,16 @@ def customer_choice_alpha(n, s_t, thetas, gamma, v_gamma, alpha, epsilon, herdin
     
     #choose from choice set
     if herding:
-        choice_set_util = sum([alpha*v_gamma[theta]*s_t[theta] 
+        choice_set_util = sum([alpha * v_gamma[theta] * s_t[theta] 
                             for theta in s_t])
 
-        choice_probs = {theta:alpha*s_t[theta]*v_gamma[theta]/(choice_set_util+epsilon*n) 
+        choice_probs = {theta : alpha * s_t[theta] * v_gamma[theta] / (choice_set_util+epsilon*n) 
                         for theta in s_t}
     else:
-        choice_set_util = sum([alpha*v_gamma[theta]*s_t[theta] / n_total_avail * n
+        choice_set_util = sum([alpha * v_gamma[theta] * s_t[theta] / n_total_avail * n
                             for theta in s_t])
 
-        choice_probs = {theta:alpha*s_t[theta]*v_gamma[theta] / n_total_avail * n / (choice_set_util+epsilon*n) 
+        choice_probs = {theta:alpha * v_gamma[theta] * s_t[theta] / n_total_avail * n / (choice_set_util+epsilon*n) 
                         for theta in s_t}
 
     choice_probs['outside_option'] = epsilon*n / (choice_set_util + epsilon*n)
