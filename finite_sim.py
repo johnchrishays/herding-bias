@@ -12,6 +12,8 @@ import pdb
 from multiprocessing import Pool
 from functools import partial
 
+from sklearn.linear_model import LinearRegression
+
 
 """
 Simulates a market with a finite number of listings, using 
@@ -225,8 +227,34 @@ def calc_lr_estimate(T_start, T_end, n, events, a_L, thetas_c, thetas_t):
     n_treat = bookings.isin(thetas_t).sum()
 
     estimate = (n_treat/(n*a_L) - n_control/(n*(1-a_L)))/(T_end-T_start)
+    
     return estimate
 
+def calc_adj_lr_estimate(T_start, T_end, n, events, a_L, thetas_c, thetas_t):
+    choice_events = events[(events['is_customer']==1) & (events['time']>T_start)
+                     & (events['time']<T_end)]
+
+    treat_events = choice_events
+    treat_events['treated'] = 1
+    control_events = choice_events
+    control_events['treated'] = 0
+
+    comb_events = pd.concat([treat_events, control_events])
+    
+    def create_label(row):
+        if row['choice_type'] == 'l_treat' and row['treated'] == 1:
+            return 1
+        elif row['choice_type'] == 'l_control' and row['treated'] == 0:
+            return 1
+        else:
+            return 0
+        
+    comb_events['y'] = comb_events.apply(create_label, axis=1)
+
+    adj_model = LinearRegression().fit(comb_events[['l_control', 'l_treat', 'treated']], comb_events['y'])
+    lm_adj = adj_model.coef_[2]
+    
+    return lm_adj
 
 def calc_cr_estimate(T_start, T_end, n, events, a_C, gammas_c, gammas_t):
     bookings = events[(events['is_customer']==1) & (events['time']>T_start)
@@ -238,6 +266,27 @@ def calc_cr_estimate(T_start, T_end, n, events, a_C, gammas_c, gammas_t):
                 - n_control_bookings/(n*(1-a_C)))/ (T_end-T_start)
 
     return estimate
+
+def calc_adj_cr_estimate(T_start, T_end, n, events, a_C, gammas_c, gammas_t):
+    choice_events = events[(events['is_customer']==1) & (events['time']>T_start)
+                     & (events['time']<T_end)]
+
+    treated_events = choice_events[choice_events['customer_type'].isin(gammas_t)]
+    ctrl_events = choice_events[choice_events['customer_type'].isin(gammas_c)]
+
+    treated_events['treated'] = 1
+    ctrl_events['treated'] = 0
+
+    comb_df = pd.concat([treated_events, ctrl_events])
+    comb_df['y'] = (comb_df['choice_type'] != 'outside_option').astype(int)
+
+    simple_model = LinearRegression().fit(comb_df[['treated']], comb_df['y'])
+    lm_naive = simple_model.coef_[0]
+
+    adj_model = LinearRegression().fit(comb_df[['l', 'treated']], comb_df['y'])
+    lm_adj = adj_model.coef_[1]
+
+    return lm_adj
 
 
 def calc_global_estimate(T_start, T_end, n, events, gammas):
@@ -267,7 +316,8 @@ def calc_tsr_estimate(T_start, T_end, n, customer_side_weight, events, a_C, a_L,
     n_01 = len(bookings_01)
     n_10 = len(bookings_10)
     n_11 = len(bookings_11)
-    
+
+
     
     scale = customer_side_weight*(1-customer_side_weight)
     
@@ -295,12 +345,37 @@ def calc_tsr_estimate(T_start, T_end, n, customer_side_weight, events, a_C, a_L,
     yis = (n_01 / ((1 - a_C) * a_L)) / n_total
     yc = (n_00 / ((1 - a_C) * (1 - a_L))) / n_total
 
+    choice_events = events[(events['is_customer']==1) & (events['time']>T_start)
+                     & (events['time']<T_end)]
+
+    treated_events = choice_events[choice_events['customer_type'].isin(gammas_t) 
+                           & choice_events['choice_type'].isin(thetas_t)]
+    ctrl_events = choice_events[~(choice_events['customer_type'].isin(gammas_t) 
+                           & choice_events['choice_type'].isin(thetas_t))]
+
+    treated_events['treated'] = 1
+    ctrl_events['treated'] = 0
+
+    comb_df = pd.concat([treated_events, ctrl_events])
+    comb_df['y'] = (comb_df['choice_type'] != 'outside_option').astype(int)
+
+    #import pdb; pdb.set_trace()
+
+    simple_model = LinearRegression().fit(comb_df[['treated']], comb_df['y'])
+    lm_naive = simple_model.coef_[0]
+
+    adj_model = LinearRegression().fit(comb_df[['l_control', 'l_treat', 'treated']], comb_df['y'])
+    lm_adj = adj_model.coef_[1]
+
     if 'mrd_direct' in tsr_est_types:
-        estimators['mrd_direct'] = yt - yib - yis + yc
+        estimators['mrd_direct'] = -.01
+        #estimators['mrd_direct'] = yt - yib - yis + yc
     if 'mrd_spillover_seller' in tsr_est_types:
-        estimators['mrd_spillover_seller'] = yis - yc
+        estimators['mrd_spillover_seller'] = lm_naive
+        #estimators['mrd_spillover_seller'] = yis - yc
     if 'mrd_spillover_buyer' in tsr_est_types:
-        estimators['mrd_spillover_buyer'] = yib - yc
+        estimators['mrd_spillover_buyer'] = lm_adj
+        #estimators['mrd_spillover_buyer'] = yib - yc
     if 'mrd_avg' in tsr_est_types:
         estimators['mrd_avg'] = yt - yc
 

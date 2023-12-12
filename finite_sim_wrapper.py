@@ -13,7 +13,7 @@ import matplotlib.ticker as tck
 from matplotlib.ticker import ScalarFormatter
 import seaborn as sns
 
-import exp_wrapper 
+import exp_wrapper
 import experiment_helper
 import finite_sim
 
@@ -188,7 +188,7 @@ def calc_estimates_from_events(events, exp_type, exp_params,
         
         if exp_type == 'cr':
             estimates[lam]['cr'] = []
-            estimates[lam]['cr'] = []
+            estimates[lam]['cr_adj'] = []
             for events_one_run in events[lam]['events']['cr']:
                 events_one_run = events_one_run[0]
                 est = finite_sim.calc_cr_estimate(T_start, 
@@ -198,10 +198,21 @@ def calc_estimates_from_events(events, exp_type, exp_params,
                                                   a_C, 
                                                   exp_params[lam]['gammas_c'], 
                                                   exp_params[lam]['gammas_t'])
+
+                est_adj = finite_sim.calc_adj_cr_estimate(T_start, 
+                                                          T_end, 
+                                                          n_listings, 
+                                                          events_one_run, 
+                                                          a_C, 
+                                                          exp_params[lam]['gammas_c'], 
+                                                          exp_params[lam]['gammas_t'])
+                
                 estimates[lam]['cr'].append(est)
+                estimates[lam]['cr_adj'].append(est)
             
         elif exp_type == 'lr':
             estimates[lam]['lr'] = []
+            estimates[lam]['lr_adj'] = []
             for events_one_run in events[lam]['events']['lr']:
                 events_one_run = events_one_run[0]
                 est = finite_sim.calc_lr_estimate(T_start, 
@@ -211,7 +222,16 @@ def calc_estimates_from_events(events, exp_type, exp_params,
                                                   a_L, 
                                                   exp_params[lam]['thetas_c'], 
                                                   exp_params[lam]['thetas_t'])
+
+                est_adj = finite_sim.calc_adj_lr_estimate(T_start, 
+                                                          T_end, 
+                                                          n_listings, 
+                                                          events_one_run, 
+                                                          a_L, 
+                                                          exp_params[lam]['thetas_c'], 
+                                                          exp_params[lam]['thetas_t'])
                 estimates[lam]['lr'].append(est)
+                estimates[lam]['lr_adj'].append(est_adj)
         elif exp_type == 'tsr':
             any_tsr_exp = list(events[lam]['events'].keys())[0]
             for est in tsr_est_types:
@@ -246,16 +266,22 @@ def calc_estimates_from_events(events, exp_type, exp_params,
                 estimates[lam]['gc'].append(est)
          
     if exp_type == 'cr':
-        estimates_df = {lam:estimates[lam]['cr'] for lam in estimates.keys()}
-        estimates_df = pd.DataFrame(estimates_df)
-        if save:
-            estimates_df.to_csv(file_path+"cr_estimates" + fname_suffix)
+        estimates_df = {}
+        for est in ['cr', 'cr_adj']:
+            estimates_df[est] = {lam:estimates[lam][est] 
+                                        for lam in estimates.keys()}
+            estimates_df[est] = pd.DataFrame(estimates_df[est])
+            if save:
+                estimates_df[est].to_csv(file_path+str(est)+"_estimates" + fname_suffix)
 
     elif exp_type == 'lr':
-        estimates_df = {lam:estimates[lam]['lr'] for lam in estimates.keys()}
-        estimates_df = pd.DataFrame(estimates_df)
-        if save:
-            estimates_df.to_csv(file_path+"lr_estimates" + fname_suffix)
+        estimates_df = {}
+        for est in ['lr', 'lr_adj']:
+            estimates_df[est] = {lam:estimates[lam][est] 
+                                        for lam in estimates.keys()}
+            estimates_df[est] = pd.DataFrame(estimates_df[est])
+            if save:
+                estimates_df[est].to_csv(file_path+str(est)+"_estimates" + fname_suffix)
             
     elif exp_type == 'tsr':
         estimates_df = {}
@@ -358,7 +384,7 @@ def calc_estimator_stats(estimator_type, estimates_df, gtes, tau, normalized=Fal
     gtes = {lam: gtes[lam]*norm_constants[lam] for lam in gtes.keys()}
     
     stats = pd.DataFrame()
-    
+
     stats['est'] = estimates_df.mean()
     stats['gte'] = [gtes[lam] for lam in gtes.keys()]
     stats['bias'] = (estimates_df - gtes).mean()
@@ -575,17 +601,24 @@ def calc_all_ests_stats(file_path, T_start, T_end, n_listings,
                                                     varying_time_horizons=varying_time_horizons, 
                                                     save=True, file_path=file_path, fname_suffix=fname_suffix)
 
-    cr_stats = calc_estimator_stats('cr', cr_estimates, gtes, tau, 
-                                     normalized=normalized_by_lam)
-    lr_stats = calc_estimator_stats('lr', lr_estimates, gtes, tau, 
-                                    normalized=normalized_by_lam)
+    cr_stats = {}
+    for est in ['cr','cr_adj']:
+        cr_stats[est] = calc_estimator_stats(est, cr_estimates[est], gtes, tau, 
+                                                    normalized=normalized_by_lam)
+
+    lr_stats = {}
+    for est in ['lr','lr_adj']:
+        lr_stats[est] = calc_estimator_stats(est, lr_estimates[est], gtes, tau, 
+                                                    normalized=normalized_by_lam)
+        
     tsr_opt_stats = {}
     for est in tsr_est_types:
         tsr_opt_stats[est] = calc_estimator_stats(est, tsr_opt_estimates[est], gtes, tau, 
                                                     normalized=normalized_by_lam)
 
 
-    total_stats_df = pd.concat([cr_stats, lr_stats]
+    total_stats_df = pd.concat([cr_stats[est] for est in ['cr', 'cr_adj']]
+                                +[lr_stats[est] for est in ['lr', 'lr_adj']]
                                 +[tsr_opt_stats[tsr_est] for tsr_est in tsr_est_types])
     total_stats_df.to_csv(file_path+"total_stats"+fname_suffix)
     return total_stats_df
