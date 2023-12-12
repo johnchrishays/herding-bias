@@ -634,7 +634,9 @@ def get_plot(ax, est_stats, stat, title, ylab, xlab, yscale="linear", legend=Fal
     if yscale:
         ax.set_yscale(yscale)
         if (stat == "bias" or stat == "bias_over_GTE") and yscale == "symlog":
-            ax.set_ylim((-10, 10))
+            ax.set_ylim((-1.01, 10))
+        elif (stat == "std" or stat == "std_over_GTE") and yscale == "symlog":
+            ax.set_ylim((0, 1))
         elif (yscale=="symlog"):
             ax.set_ylim((0, 50))
 
