@@ -624,7 +624,7 @@ def calc_all_ests_stats(file_path, T_start, T_end, n_listings,
     total_stats_df.to_csv(file_path+"total_stats"+fname_suffix)
     return total_stats_df
 
-def get_plot(ax, est_stats, stat, title, ylab, xlab, yscale="linear", legend=False, pal="Set3"):
+def get_plot(ax, est_stats, stat, title, ylab, xlab, yscale="linear", legend=False, pal="Set1"):
 
     rgb_0_1_array = np.array(sns.color_palette(pal, est_stats.index.levshape[0]))
 
@@ -635,7 +635,9 @@ def get_plot(ax, est_stats, stat, title, ylab, xlab, yscale="linear", legend=Fal
     if yscale:
         ax.set_yscale(yscale)
         if (stat == "bias" or stat == "bias_over_GTE") and yscale == "symlog":
-            ax.set_ylim((-10, 10))
+            ax.set_ylim((-1.01, 10))
+        elif (stat == "std" or stat == "std_over_GTE") and yscale == "symlog":
+            ax.set_ylim((0, 1))
         elif (yscale=="symlog"):
             ax.set_ylim((0, 50))
 
@@ -659,7 +661,7 @@ def plot_all_stats(est_stats, suptitle, yscale = "symlog"):
              'bias', 
              "", 
              "Bias", 
-             "Relative user arrival rate $\lambda/\\tau$",
+             "Relative customer arrival rate $\lambda/\\tau$",
              yscale=yscale)
 
     get_plot(axes[0][1], 
@@ -667,7 +669,7 @@ def plot_all_stats(est_stats, suptitle, yscale = "symlog"):
              'bias_over_GTE', 
              "", 
              "Bias / GTE", 
-             "Relative user arrival rate $\lambda/\\tau$",
+             "Relative customer arrival rate $\lambda/\\tau$",
              yscale=yscale)
 
     get_plot(axes[1][0], 
@@ -675,7 +677,7 @@ def plot_all_stats(est_stats, suptitle, yscale = "symlog"):
              'std', 
              "", 
              "SE", 
-             "Relative user arrival rate $\lambda/\\tau$",
+             "Relative customer arrival rate $\lambda/\\tau$",
              yscale=yscale)
 
     get_plot(axes[1][1], 
@@ -683,7 +685,7 @@ def plot_all_stats(est_stats, suptitle, yscale = "symlog"):
              'std_over_GTE', 
              "", 
              "SE / GTE", 
-             "Relative user arrival rate $\lambda/\\tau$",
+             "Relative customer arrival rate $\lambda/\\tau$",
              yscale=yscale)
 
     get_plot(axes[2][0], 
@@ -691,7 +693,7 @@ def plot_all_stats(est_stats, suptitle, yscale = "symlog"):
              'rmse', 
              "", 
              "RMSE", 
-             "Relative user arrival rate $\lambda/\\tau$",
+             "Relative customer arrival rate $\lambda/\\tau$",
              yscale=yscale)
 
     get_plot(axes[2][1], 
@@ -699,7 +701,7 @@ def plot_all_stats(est_stats, suptitle, yscale = "symlog"):
              'rmse_over_GTE', 
              "", 
              "RMSE / GTE", 
-             "Relative user arrival rate $\lambda/\\tau$",
+             "Relative customer arrival rate $\lambda/\\tau$",
              yscale=yscale,
              legend=True)
 
