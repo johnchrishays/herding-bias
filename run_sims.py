@@ -316,7 +316,7 @@ if args.crowding:
 if args.crtime:
     print("CR over time")
     herding = True
-    recency = False
+    recency = True
     exp_type = "cr_params"
 
     T_0 = 5
