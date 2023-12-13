@@ -230,6 +230,7 @@ def calc_estimates_from_events(events, exp_type, exp_params,
                                                           a_L, 
                                                           exp_params[lam]['thetas_c'], 
                                                           exp_params[lam]['thetas_t'])
+                
                 estimates[lam]['lr'].append(est)
                 estimates[lam]['lr_adj'].append(est_adj)
         elif exp_type == 'tsr':

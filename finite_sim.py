@@ -231,15 +231,21 @@ def calc_lr_estimate(T_start, T_end, n, events, a_L, thetas_c, thetas_t):
     return estimate
 
 def calc_adj_lr_estimate(T_start, T_end, n, events, a_L, thetas_c, thetas_t):
-    choice_events = events[(events['is_customer']==1) & (events['time']>T_start)
-                     & (events['time']<T_end)]
+    # choice_events = events[(events['is_customer']==1) & (events['time']>T_start)
+    #                  & (events['time']<T_end)]
 
-    treat_events = choice_events
-    treat_events['treated'] = 1
-    control_events = choice_events
-    control_events['treated'] = 0
+    # treat_events = choice_events.copy()
+    # treat_events['treated'] = 1
+    # control_events = choice_events.copy()
+    # control_events['treated'] = 0
 
-    comb_events = pd.concat([treat_events, control_events])
+    # comb_events = pd.concat([treat_events, control_events])
+
+    choice_events = events[(events['is_customer'] == 1) & (events['time'] > T_start) & (events['time'] < T_end)]
+    comb_events = choice_events.copy()    
+    comb_events['treated'] = 1
+    comb_events = pd.concat([comb_events, choice_events.assign(treated=0)])
+
     
     def create_label(row):
         if row['choice_type'] == 'l_treat' and row['treated'] == 1:
