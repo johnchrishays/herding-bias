@@ -351,37 +351,12 @@ def calc_tsr_estimate(T_start, T_end, n, customer_side_weight, events, a_C, a_L,
     yis = (n_01 / ((1 - a_C) * a_L)) / n_total
     yc = (n_00 / ((1 - a_C) * (1 - a_L))) / n_total
 
-    choice_events = events[(events['is_customer']==1) & (events['time']>T_start)
-                     & (events['time']<T_end)]
-
-    treated_events = choice_events[choice_events['customer_type'].isin(gammas_t) 
-                           & choice_events['choice_type'].isin(thetas_t)]
-    ctrl_events = choice_events[~(choice_events['customer_type'].isin(gammas_t) 
-                           & choice_events['choice_type'].isin(thetas_t))]
-
-    treated_events['treated'] = 1
-    ctrl_events['treated'] = 0
-
-    comb_df = pd.concat([treated_events, ctrl_events])
-    comb_df['y'] = (comb_df['choice_type'] != 'outside_option').astype(int)
-
-    #import pdb; pdb.set_trace()
-
-    simple_model = LinearRegression().fit(comb_df[['treated']], comb_df['y'])
-    lm_naive = simple_model.coef_[0]
-
-    adj_model = LinearRegression().fit(comb_df[['l_control', 'l_treat', 'treated']], comb_df['y'])
-    lm_adj = adj_model.coef_[1]
-
     if 'mrd_direct' in tsr_est_types:
-        estimators['mrd_direct'] = -.01
-        #estimators['mrd_direct'] = yt - yib - yis + yc
+        estimators['mrd_direct'] = yt - yib - yis + yc
     if 'mrd_spillover_seller' in tsr_est_types:
-        estimators['mrd_spillover_seller'] = lm_naive
-        #estimators['mrd_spillover_seller'] = yis - yc
+        estimators['mrd_spillover_seller'] = yis - yc
     if 'mrd_spillover_buyer' in tsr_est_types:
-        estimators['mrd_spillover_buyer'] = lm_adj
-        #estimators['mrd_spillover_buyer'] = yib - yc
+        estimators['mrd_spillover_buyer'] = yib - yc
     if 'mrd_avg' in tsr_est_types:
         estimators['mrd_avg'] = yt - yc
 
