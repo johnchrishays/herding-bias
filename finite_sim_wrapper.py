@@ -660,7 +660,7 @@ def plot_all_stats(est_stats, suptitle, yscale = "symlog"):
              'bias', 
              "", 
              "Bias", 
-             "Relative user arrival rate $\lambda/\\tau$",
+             "Relative customer arrival rate $\lambda/\\tau$",
              yscale=yscale)
 
     get_plot(axes[0][1], 
@@ -668,7 +668,7 @@ def plot_all_stats(est_stats, suptitle, yscale = "symlog"):
              'bias_over_GTE', 
              "", 
              "Bias / GTE", 
-             "Relative user arrival rate $\lambda/\\tau$",
+             "Relative customer arrival rate $\lambda/\\tau$",
              yscale=yscale)
 
     get_plot(axes[1][0], 
@@ -676,7 +676,7 @@ def plot_all_stats(est_stats, suptitle, yscale = "symlog"):
              'std', 
              "", 
              "SE", 
-             "Relative user arrival rate $\lambda/\\tau$",
+             "Relative customer arrival rate $\lambda/\\tau$",
              yscale=yscale)
 
     get_plot(axes[1][1], 
@@ -684,7 +684,7 @@ def plot_all_stats(est_stats, suptitle, yscale = "symlog"):
              'std_over_GTE', 
              "", 
              "SE / GTE", 
-             "Relative user arrival rate $\lambda/\\tau$",
+             "Relative customer arrival rate $\lambda/\\tau$",
              yscale=yscale)
 
     get_plot(axes[2][0], 
@@ -692,7 +692,7 @@ def plot_all_stats(est_stats, suptitle, yscale = "symlog"):
              'rmse', 
              "", 
              "RMSE", 
-             "Relative user arrival rate $\lambda/\\tau$",
+             "Relative customer arrival rate $\lambda/\\tau$",
              yscale=yscale)
 
     get_plot(axes[2][1], 
@@ -700,7 +700,7 @@ def plot_all_stats(est_stats, suptitle, yscale = "symlog"):
              'rmse_over_GTE', 
              "", 
              "RMSE / GTE", 
-             "Relative user arrival rate $\lambda/\\tau$",
+             "Relative customer arrival rate $\lambda/\\tau$",
              yscale=yscale,
              legend=True)
 
