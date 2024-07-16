@@ -25,6 +25,7 @@ import argparse
 argParser = argparse.ArgumentParser()
 argParser.add_argument("-r", "--n_runs", help="number of simulations to run")
 argParser.add_argument("-l", "--n_listings", help="number of listings")
+argParser.add_argument("-o", "--output_postfix", help="output file postfix", default="")
 argParser.add_argument("--herding", action='store_true',  help="whether to run hearding simulations")
 argParser.add_argument("--herding_no_recency", action='store_true', help="number of listings")
 argParser.add_argument("--crowding", action='store_true', help="number of listings")
@@ -45,7 +46,7 @@ tsr_ac_al_values = [.5]
 cr_a_C = 0.5
 lr_a_L = 0.5
 
-tsr_est_types = ['tsr_est_naive', 'tsri_1.0','tsri_2.0'] + ['mrd_direct', 'mrd_spillover_seller', 'mrd_spillover_buyer', 'mrd_avg']
+tsr_est_types = ['tsr_est_naive', 'tsri_1.0','tsri_2.0'] + ['mrd_direct', 'mrd_spillover_seller', 'mrd_spillover_buyer', 'mrd_avg', 'causalband_lower', 'causalband_upper', 'causalband_cc']
 
 customer_types = ['c1']
 listing_types = ['l']
@@ -137,6 +138,15 @@ def get_concat(events):
     concat_df["not_outside"] = concat_df["choice_type"] != "outside_option"
     return concat_df
 
+def get_sum_t(df, t_0, t_1, l_type):
+    if l_type == "l_treat" or l_type == "l_control":
+        return (df[(df.index >= t_0) & (df.index <= t_1)]["choice_type"] == l_type).sum()
+    else:
+        return df[(df.index >= t_0) & (df.index <= t_1)].sum()["not_outside"]
+
+def get_sum(df, l_type = None):
+    return np.array([get_sum_t(df, t_0, t_0+1, l_type) for t_0 in range(T_1)])
+
 def get_mean_t(df, t_0, t_1, l_type):
     if l_type == "l_treat" or l_type == "l_control":
         return (df[(df.index >= t_0) & (df.index <= t_1)]["choice_type"] == l_type).mean()
@@ -151,10 +161,12 @@ def get_sds(dfs_t, dfs_c):
         for df in dfs:
             df["not_outside"] = df["choice_type"] != "outside_option" 
     if exp_type == "lr_params":
-        means = [np.array(get_mean(df_t, l_type="l_treat"))-np.array(get_mean(df_c, l_type="l_control")) for df_t,df_c  in zip(dfs_t, dfs_c)]
+        means_t = [np.array(get_mean(df_t, l_type="l_treat")) for df_t  in dfs_t]
+        means_c = [np.array(get_mean(df_c, l_type="l_control")) for df_c  in dfs_c]
     else:
-        means = [np.array(get_mean(df_t))-np.array(get_mean(df_c)) for df_t,df_c  in zip(dfs_t, dfs_c)]
-    return np.std(np.vstack(means), axis=0)/math.sqrt(len(dfs_t))
+        means_t = [np.array(get_mean(df_t)) for df_t  in dfs_t]
+        means_c = [np.array(get_mean(df_c)) for df_c  in dfs_c]
+    return np.std(np.vstack(means_t), axis=0)/math.sqrt(len(dfs_t)),np.std(np.vstack(means_c), axis=0)/math.sqrt(len(dfs_c)) 
 
 def get_sds_bias(dfs_t, dfs_c, dfs_exp_t, dfs_exp_c):
     for dfs in [dfs_t, dfs_c, dfs_exp_t, dfs_exp_c]:
@@ -198,14 +210,14 @@ def run_sims_over_time(N, herding, recency, exp_type):
     events = [get_events(herding, recency, exp_type) for _ in range(N)]
     customer_events_t, customer_events_c, customer_events_exp_treat, customer_events_exp_control = zip(*events)
 
-    avgs_t = get_mean(get_concat(customer_events_t))
-    avgs_c = get_mean(get_concat(customer_events_c))
+    avgs_t = get_sum(get_concat(customer_events_t)) / n_listings / N
+    avgs_c = get_sum(get_concat(customer_events_c)) / n_listings / N
     if exp_type == "lr_params":
-        avgs_exp_treat = get_mean(get_concat(customer_events_exp_treat), l_type = 'l_treat')
-        avgs_exp_control = get_mean(get_concat(customer_events_exp_control), l_type = 'l_control')
+        avgs_exp_treat = get_sum(get_concat(customer_events_exp_treat), l_type = 'l_treat') / (lr_a_L * n_listings) / N
+        avgs_exp_control = get_sum(get_concat(customer_events_exp_control), l_type = 'l_control') / ((1 - lr_a_L) * n_listings) / N
     else:
-        avgs_exp_treat = get_mean(get_concat(customer_events_exp_treat))
-        avgs_exp_control = get_mean(get_concat(customer_events_exp_control))
+        avgs_exp_treat = get_sum(get_concat(customer_events_exp_treat)) / (cr_a_C * n_listings) / N
+        avgs_exp_control = get_sum(get_concat(customer_events_exp_control)) / ((1 - cr_a_C) * n_listings) / N
     sds_gte = get_sds(customer_events_t, customer_events_c)
     sds_cr = get_sds(customer_events_exp_treat, customer_events_exp_control)
     sds_bias = get_sds_bias(customer_events_t, customer_events_c, customer_events_exp_treat, customer_events_exp_control)
@@ -303,7 +315,7 @@ def get_events(herding, recency, exp_type='cr_params'):
 
 if args.herding:
     print("HERDING")
-    run_sim(herding=True, recency=True, fname_suffix="_herding.csv")
+    run_sim(herding=True, recency=True, fname_suffix=f"_herding{args.output_postfix}.csv")
 
 if args.herding_no_recency:
     print("HERDING NO RECENCY")
@@ -323,7 +335,9 @@ if args.crtime:
     T_1 = 30
 
     avgs_t, avgs_c, avgs_exp_treat, avgs_exp_control, sds_gte, sds_cr, sds_bias = run_sims_over_time(n_runs, herding, recency, exp_type)
-    plot_sims_over_time(avgs_t, avgs_c, avgs_exp_treat, avgs_exp_control, sds_gte, sds_cr, sds_bias, fname="cr_herdingovertime.png", prefix="CR")
+    df = pd.DataFrame([avgs_t, avgs_c, avgs_exp_treat, avgs_exp_control, sds_gte[0], sds_gte[1], sds_cr[0], sds_cr[1], sds_bias])
+    df.to_csv(f"cr_herding{args.output_postfix}.csv")
+    #plot_sims_over_time(avgs_t, avgs_c, avgs_exp_treat, avgs_exp_control, sds_gte, sds_cr, sds_bias, fname="cr_herdingovertime.png", prefix="CR")
 
 if args.lrtime:
     print("LR over time")
@@ -332,8 +346,10 @@ if args.lrtime:
     exp_type = "lr_params"
 
     T_0 = 5
-    T_1 = 60
+    T_1 = 30
     avgs_t, avgs_c, avgs_exp_treat, avgs_exp_control, sds_gte, sds_cr, sds_bias = run_sims_over_time(n_runs, herding, recency, exp_type)
-    plot_sims_over_time(avgs_t, avgs_c, avgs_exp_treat, avgs_exp_control, sds_gte, sds_cr, sds_bias, fname="lr_herdingovertime.png", prefix="LR")
+    df = pd.DataFrame([avgs_t, avgs_c, avgs_exp_treat, avgs_exp_control, sds_gte[0], sds_gte[1], sds_cr[0], sds_cr[1], sds_bias])
+    df.to_csv(f"lr_herding{args.output_postfix}.csv")
+    #plot_sims_over_time(avgs_t, avgs_c, avgs_exp_treat, avgs_exp_control, sds_gte, sds_cr, sds_bias, fname="lr_herdingovertime.png", prefix="LR")
 
 print("END")

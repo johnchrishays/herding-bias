@@ -359,6 +359,12 @@ def calc_tsr_estimate(T_start, T_end, n, customer_side_weight, events, a_C, a_L,
         estimators['mrd_spillover_buyer'] = yib - yc
     if 'mrd_avg' in tsr_est_types:
         estimators['mrd_avg'] = yt - yc
+    if 'causalband_lower' in tsr_est_types:
+        estimators['causalband_lower'] = yt - yis
+    if 'causalband_upper' in tsr_est_types:
+        estimators['causalband_upper'] = yt - yib
+    if 'causalband_cc' in tsr_est_types:
+        estimators['causalband_cc'] = yis - yc
 
     return estimators
 
